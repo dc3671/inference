@@ -24,6 +24,7 @@ from megatron.initialize import initialize_megatron
 from megatron.model import GPTModel
 from megatron.training import get_model
 import torch
+import deepspeed
 
 
 GENERATE_NUM = 0
@@ -40,19 +41,19 @@ class MegatronGenerate(Resource):
 
     @staticmethod
     def send_do_generate():
-        choice = torch.cuda.LongTensor([GENERATE_NUM])
+        choice = torch.LongTensor([GENERATE_NUM])
         torch.distributed.broadcast(choice, 0)
 
     @staticmethod
     def send_do_beam_search():
-        choice = torch.cuda.LongTensor([BEAM_NUM])
+        choice = torch.LongTensor([BEAM_NUM])
         torch.distributed.broadcast(choice, 0)
 
     @staticmethod
     def sync_input(input_ids, input_length):
-        input_length_tensor = torch.cuda.LongTensor(input_length)
+        input_length_tensor = torch.LongTensor(input_length)
         torch.distributed.broadcast(input_length_tensor, 0)
-        input_ids_tensor = torch.cuda.LongTensor(input_ids)
+        input_ids_tensor = torch.LongTensor(input_ids)
         torch.distributed.broadcast(input_ids_tensor, 0)
         return input_ids_tensor, input_length_tensor
 
@@ -171,6 +172,17 @@ def add_text_generate_args(parser):
     group.add_argument("--use-beam-search", action = "store_true")
     return parser
 
+def ds_inference(model, args):
+    import megatron.model as mm
+    engine = deepspeed.init_inference(model=model,
+                                      mp_size=args.tensor_model_parallel_size,
+                                      tensor_parallel={"mpu": mpu},
+                                      dtype=torch.half if args.fp16 == True else torch.bfloat16,
+                                      replace_with_kernel_inject=True if args.fp16 == True else False,
+                                      moe_experts=args.num_experts,
+                                      moe_type=args.mlp_type)
+
+    return engine.module
 
 if __name__ == "__main__":
     initialize_megatron(
@@ -199,26 +211,32 @@ if __name__ == "__main__":
         print("Interleaved pipeline schedule is not yet supported for text generation.")
         exit()
     # Set up model and load checkpoint
-    model = get_model(model_provider, wrap_with_ddp=False)
-
+    model = get_model(model_provider)
+    # for name,parameters in model[0].named_parameters():
+    #     print(name, ':', parameters.size())
+    #     print(name, ':', parameters)
+    #     exit(0)
     if args.load is not None:
         _ = load_checkpoint(model, None, None)
 
     assert len(model) == 1, "Above condition should have caught this"
     model = model[0]
+
+    model = ds_inference(model, args)
+
     if mpu.is_pipeline_first_stage() and mpu.get_tensor_model_parallel_rank() == 0:
         server = MegatronServer(model, gen_kwargs)
         server.run("127.0.0.1")
 
     while True:
-        choice = torch.cuda.LongTensor(1)
-        input_length_tensor = torch.cuda.LongTensor(1)
+        choice = torch.LongTensor(1)
+        input_length_tensor = torch.LongTensor(1)
         torch.distributed.broadcast(choice, 0)
         if choice[0].item() == 0:
             # Greedy or top-k
             try:
                 torch.distributed.broadcast(input_length_tensor, 0)
-                input_ids_tensor = torch.cuda.LongTensor(
+                input_ids_tensor = torch.LongTensor(
                     [
                         [
                             0
@@ -244,7 +262,7 @@ if __name__ == "__main__":
             # Beam search
             try:
                 torch.distributed.broadcast(input_length_tensor, 0)
-                input_ids_tensor = torch.cuda.LongTensor(
+                input_ids_tensor = torch.LongTensor(
                     [
                         [
                             0

@@ -6,7 +6,7 @@ DISTRIBUTED_ARGS="--nproc_per_node 1 \
                   --master_addr localhost \
                   --master_port 6000"
 
-TOKENIZER_MODEL_FILE=$HOME/inference/language/gpt3/megatron/data/c4_en_301_5Mexp2_spm.model
+TOKENIZER_MODEL_FILE=/home/yejingla/Workspace/mlperf_gpt3_infer/inference/language/gpt3/megatron/data/c4_en_301_5Mexp2_spm.model
 
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
@@ -23,4 +23,5 @@ torchrun $DISTRIBUTED_ARGS text_generation_server.py   \
        --micro-batch-size 1  \
        --seq-length 1024  \
        --tokenizer-model $TOKENIZER_MODEL_FILE \
-       --seed 42 
+       --seed 42 \
+       --ds-inference
