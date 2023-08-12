@@ -7,8 +7,8 @@
 #                   --master_port 6000"
 
 DISTRIBUTED_ARGS=" --num_nodes 1 --num_gpus 8"
-CHECKPOINT=/media/newdrive2/gpt3-checkpoint
-TOKENIZER_MODEL_FILE=/home/yejingla/Workspace/mlperf_gpt3_infer/inference/language/gpt3/megatron/data/c4_en_301_5Mexp2_spm.model
+CHECKPOINT=./model
+TOKENIZER_MODEL_FILE=./data/c4_en_301_5Mexp2_spm.model
 
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 

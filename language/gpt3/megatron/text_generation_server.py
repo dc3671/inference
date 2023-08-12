@@ -18,9 +18,10 @@ from megatron.text_generation.generation import (
 
 from megatron import get_args
 from megatron import print_rank_0
-from megatron import mpu
+from megatron.core import mpu
 from megatron.checkpointing import load_checkpoint
 from megatron.initialize import initialize_megatron
+from megatron.arguments import core_transformer_config_from_args
 from megatron.model import GPTModel
 from megatron.training import get_model
 import torch
@@ -30,6 +31,19 @@ import deepspeed
 GENERATE_NUM = 0
 BEAM_NUM = 1
 lock = threading.Lock()
+
+def mapping_impi_to_torch():
+    os.environ['LOCAL_RANK'] = os.environ['MPI_LOCALRANKID']
+    os.environ['LOCAL_SIZE'] = os.environ['MPI_LOCALNRANKS']
+    os.environ['RANK'] = os.environ['PMI_RANK']
+    os.environ['WORLD_SIZE'] = os.environ['PMI_SIZE']
+    os.environ['CROSS_RANK'] = '0'
+    os.environ['CROSS_SIZE'] = '1'
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '44434'
+
+if 'MPI_LOCALRANKID' in os.environ: # MPI launcher
+    mapping_impi_to_torch()
 
 
 class MegatronGenerate(Resource):
@@ -157,7 +171,11 @@ def model_provider(pre_process=True, post_process=True):
     """Build the model."""
 
     print_rank_0("building GPT model ...")
+    config = core_transformer_config_from_args(get_args())
+    config.init_method =None
+    config.gradient_accumulation_fusion = False
     model = GPTModel(
+        config,
         num_tokentypes=0,
         parallel_output=False,
         pre_process=pre_process,
