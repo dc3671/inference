@@ -1,4 +1,4 @@
-
+#!/bin/bash
 mode=$1
 model=./model/
 dataset=./data/cnn_eval.json

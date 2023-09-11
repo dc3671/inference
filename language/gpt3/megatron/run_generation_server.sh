@@ -6,15 +6,15 @@
 #                   --master_addr localhost \
 #                   --master_port 6000"
 
-DISTRIBUTED_ARGS=" --num_nodes 1 --num_gpus 8"
+DISTRIBUTED_ARGS="-np 8 --prepend-rank python -u"
 CHECKPOINT=./model
 TOKENIZER_MODEL_FILE=./data/c4_en_301_5Mexp2_spm.model
 
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
-pip install flask-restful
+#pip install flask-restful
 
-deepspeed $DISTRIBUTED_ARGS text_generation_server.py   \
+mpirun ${DISTRIBUTED_ARGS} text_generation_server.py   \
        --tensor-model-parallel-size 8  \
        --pipeline-model-parallel-size 1  \
        --num-layers 96  \
@@ -30,4 +30,4 @@ deepspeed $DISTRIBUTED_ARGS text_generation_server.py   \
        --fp16  \
        --use-beam-search  \
        --ds-inference
-       # --load ${CHECKPOINT} \
+       #--load ${CHECKPOINT} \

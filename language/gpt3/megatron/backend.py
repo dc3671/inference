@@ -21,7 +21,7 @@ class SUT_base:
         print("Loading PyTorch model...")
         self.model_name = "Megatron-LM"
         self.dataset_path = dataset_path
-        self.url = "http://localhost:5000/api"
+        self.url = "http://127.0.0.1:9999/api"
         self.headers = {"Content-Type": "application/json"}
 
         self.data_object = Dataset(
@@ -64,6 +64,7 @@ class SUT_base:
         data = {"input_ids": input_ids_tensor, "input_length": input_length_tensor}
         response = requests.put(self.url, data=json.dumps(data), headers=self.headers)
         if response.status_code != 200:
+            print(response)
             # TODO: Manage exeption
             return None
         else:
